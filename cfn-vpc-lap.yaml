@@ -169,3 +169,42 @@ Resources:
     Properties:
       Roles:
         - !Ref EC2SSMRole
+  # ----------------------------
+  # Public Web Server (Apache)
+  # ----------------------------
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-015cbce10f839bd0c
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref WebServerSG
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<h1>Hello, my name is YOUR FULL NAME</h1>" > /var/www/html/index.html
+      Tags:
+        - Key: Name
+          Value: WebServer
+
+  # ----------------------------
+  # Private Server (no public IP)
+  # ----------------------------
+  PrivateInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-015cbce10f839bd0c
+      SubnetId: !Ref PrivateSubnet
+      SecurityGroupIds:
+        - !Ref PrivateSG
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      Tags:
+        - Key: Name
+          Value: PrivateServer
