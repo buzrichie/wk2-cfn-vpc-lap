@@ -123,6 +123,10 @@ Resources:
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.0.0.0/16
       SecurityGroupEgress:
         - IpProtocol: -1
           FromPort: 0
@@ -188,7 +192,7 @@ Resources:
           yum install -y httpd
           systemctl start httpd
           systemctl enable httpd
-          echo "<h1>Hello, my name is YOUR FULL NAME</h1>" > /var/www/html/index.html
+          echo "<h1>Hello, my name is Richmond Kwame Nyarko</h1>" > /var/www/html/index.html
       Tags:
         - Key: Name
           Value: WebServer
