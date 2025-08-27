@@ -17,11 +17,10 @@ Resources:
         - Key: Name
           Value: Wk2LabVPC
 
-  # ----------------------------
-  # Internet Gateway (for Public Subnet)
-  # ----------------------------
-  InternetGateway:
+  # Internet Gateway
+  Wk2InternetGateway:
     Type: AWS::EC2::InternetGateway
+    DependsOn: Week2LapVPC
     Properties:
       Tags:
         - Key: Name
@@ -31,36 +30,84 @@ Resources:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref Week2LapVPC
-      InternetGatewayId: !Ref InternetGateway
+      InternetGatewayId: !Ref Wk2InternetGateway
 
-  # ----------------------------
-  # Subnets (1 Public, 1 Private in different AZs)
-  # ----------------------------
-  PublicSubnet:
+  # Subnets
+  PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref Week2LapVPC
-      CidrBlock: 10.0.1.0/24
+      CidrBlock: 10.0.3.0/24
       AvailabilityZone: !Select [0, !GetAZs ""]
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: PublicSubnet
+          Value: PublicSubnet-AZ1
 
-  PrivateSubnet:
+  PrivateSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref Week2LapVPC
-      CidrBlock: 10.0.2.0/24
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet-AZ1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Week2LapVPC
+      CidrBlock: 10.0.5.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet-AZ2
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Week2LapVPC
+      CidrBlock: 10.0.6.0/24
       AvailabilityZone: !Select [1, !GetAZs ""]
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: PrivateSubnet
+          Value: PrivateSubnet-AZ2
 
-  # ----------------------------
-  # Route Tables + Routes
-  # ----------------------------
+  # Elastic IPs
+  NatEIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatEIP2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  # NAT Gateways
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    DependsOn:
+      - NatEIP1
+      - PublicSubnet1
+    Properties:
+      AllocationId: !GetAtt NatEIP1.AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    DependsOn:
+      - NatEIP2
+      - PublicSubnet2
+    Properties:
+      AllocationId: !GetAtt NatEIP2.AllocationId
+      SubnetId: !Ref PublicSubnet2
+
+  # Route Tables
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -72,47 +119,57 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      GatewayId: !Ref Wk2InternetGateway
 
-  PublicSubnetRouteTableAssociation:
+  PublicSubnet1Association:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
       RouteTableId: !Ref PublicRouteTable
 
-  # NAT Gateway (for Private subnet internet access)
-  NatEIP:
-    Type: AWS::EC2::EIP
+  PublicSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      Domain: vpc
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
 
-  NatGateway:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt NatEIP.AllocationId
-      SubnetId: !Ref PublicSubnet
-
-  PrivateRouteTable:
+  PrivateRouteTable1:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref Week2LapVPC
 
-  PrivateRoute:
+  PrivateRoute1:
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref PrivateRouteTable
+      RouteTableId: !Ref PrivateRouteTable1
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway
+      NatGatewayId: !Ref NatGateway1
 
-  PrivateSubnetRouteTableAssociation:
+  PrivateSubnet1Association:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnet
-      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
 
-  # ----------------------------
-  # Security Group for Web Server (Public EC2)
-  # ----------------------------
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Week2LapVPC
+
+  PrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  PrivateSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+
+  # Security Groups
   WebServerSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -151,9 +208,8 @@ Resources:
           FromPort: 0
           ToPort: 65535
           CidrIp: 0.0.0.0/0
-  # ----------------------------
-  # IAM Role for EC2 Instances (SSM access)
-  # ----------------------------
+
+  # IAM for EC2
   EC2SSMRole:
     Type: AWS::IAM::Role
     Properties:
@@ -173,15 +229,14 @@ Resources:
     Properties:
       Roles:
         - !Ref EC2SSMRole
-  # ----------------------------
-  # Public Web Server (Apache)
-  # ----------------------------
+
+  # EC2 Instances
   WebServerInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.micro
       ImageId: ami-015cbce10f839bd0c
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
       SecurityGroupIds:
         - !Ref WebServerSG
       IamInstanceProfile: !Ref EC2InstanceProfile
@@ -205,7 +260,7 @@ Resources:
     Properties:
       InstanceType: t3.micro
       ImageId: ami-015cbce10f839bd0c
-      SubnetId: !Ref PrivateSubnet
+      SubnetId: !Ref PrivateSubnet2
       SecurityGroupIds:
         - !Ref PrivateSG
       IamInstanceProfile: !Ref EC2InstanceProfile
